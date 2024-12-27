@@ -1,115 +1,81 @@
 #!/bin/bash
 
-COUNTRY="${COUNTRY}"
-CITY="${CITY}"
-VERSION="0.1.0"
+VERSION="0.2.0"
+ALLOPTIONS=$@
 
-while [ "$1" != "" ] ; do
+while [ "$1" != "" ];
+do
    case $1 in
     -v | --version )
         echo "Wireguard Config Files for NordVPN v$VERSION"
-    exit
-        ;;
-    -c | --country )
-        shift
-        [ -n "$1" ] && COUNTRY="$1"
-        ;;
-    -s | --city )
-        shift
-        [ -n "$1" ] && CITY="$1"
+	      exit
         ;;
     -h | --help )
-         cat <<EOF
-Usage: NordVpnToWireguard [OPTIONS]
-OPTION includes:
-   -v | --version  - prints out version information.
-   -c | --country  - Country to connect to (ex. Canada). If option is not provided, NordVPN will get a wireguard configuration for the recommended country, unless a valid city name is provided.
-   -s | --city - City to connect to (ex. Toronto). When country option is provided, NordVPN will look for the the city within the country and return the fastest server. If no country is provided, NordVPN will look up the fastest server for a city matching the name.
-   -h | --help     - displays this message.
-EOF
-         exit
-      ;;
-    * )
-         cat <<EOF
-Invalid option: $1
-Usage: NordVpnToWireguard [-v] [-c country] [-s server]
-   -v | --version   - prints out version information.
-   -c | --country   - country name
-   -s | --city      - city name
-   -h | --help      - displays this message.
-EOF
+         echo "Usage: NordVpnToWireguard [command options] [<country>|<server>|<country_code>|<city>|<group>|<country> <city>]"
+         echo "Command Options includes:"
+         echo "   <country>       argument to create a Wireguard config for a specific country. For example: 'NordVpnToWireguard Australia'"
+	       echo "   <server>        argument to create a Wireguard config for a specific server. For example: 'NordVpnToWireguard jp35'"
+	       echo "   <country_code>  argument to create a Wireguard config for a specific country. For example: 'NordVpnToWireguard us'"
+	       echo "   <city>          argument to create a Wireguard config for a specific city. For example: 'NordVpnToWireguard Hungary Budapest'"
+	       echo "   <group>         argument to create a Wireguard config for a specific servers group. For example: 'NordVpnToWireguard connect Onion_Over_VPN'"
+         echo "   -h | --help     - displays this message."
          exit
       ;;
   esac
   shift
 done
 
-if [[ -z "$COUNTRY" ]] && [[ -z "$CITY" ]] ; then
-    echo "Getting configuration for recommended server..."
-else
-    if [[ -z "$CITY" ]] && [[ ! -z "$COUNTRY" ]] ; then
-        echo "Getting configuration for recommended server in $COUNTRY"
-    fi
-
-    if [[ ! -z "$CITY" ]] && [[ -z "$COUNTRY" ]] ; then
-        echo "Getting configuration for recommended server in $CITY"
-    fi
-
-    if [[ ! -z "$CITY" ]] && [[ ! -z "$COUNTRY" ]] ; then
-        echo "Getting configuration for recommended server in $COUNTRY, city: $CITY"
-    fi
-fi
-
 # Connect to NordVPN
-printf "Connecting ...\n"
-printf "\033[96;1m%s\033[0m\n" "nordvpn c $COUNTRY $CITY"
-nordvpn c $COUNTRY $CITY > /dev/null 2>&1
-
-if [ $? -ne 0 ] ; then
+echo "Connect to NordVPN to gather connection parameters...."
+nordvpn connect $ALLOPTIONS  > /dev/null 2>&1 || {
     echo "Unable to connect to NordVPN."
     exit 1
+}
+
+# Use ip or ifconfig to get
+if [ $(command -v ip &> /dev/null) ]; then
+        IP_ADDR_COMMAND="ip addr show"
+else
+        IP_ADDR_COMMAND="ifconfig"
 fi
 
-# Preparing the Interface section
-echo "[Interface]" > Nordvpn.conf
-privateKey=`wg show nordlynx private-key`
-echo "PrivateKey = $privateKey" >> Nordvpn.conf
-echo "ListenPort = 51820" >> Nordvpn.conf
-localAddress=`ifconfig nordlynx | grep inet |  awk -v OFS='\n' '{ print $2 }'`
-echo "Address = $localAddress/32" >> Nordvpn.conf
-echo "DNS = 103.86.96.100, 103.86.99.100" >> Nordvpn.conf
-echo "" >> Nordvpn.conf
+# Preparing the I
 
-# Gathering info for the Peer section
-curl -s "https://api.nordvpn.com/v1/servers/recommendations?&filters\[servers_technologies\]\[identifier\]=wireguard_udp&limit=1"|jq -r '.[]|.hostname, .station, (.locations|.[]|.country|.city.name), (.locations|.[]|.country|.name), (.technologies|.[].metadata|.[].value), .load' >> Peer.txt
+# Gather all info
+MYIP=$($IP_ADDR_COMMAND nordlynx | grep inet | awk '{print $2}')/32
+PRIVATE=$(sudo wg show nordlynx private-key)
+PUBKEY=$(sudo wg show nordlynx | grep peer | awk '{print $2}')
+ENDPOINT=$(nordvpn status | grep 'Hostname' | awk '{print $2}')
+OUTPUFILENAME="NordVPN-`echo $ENDPOINT | grep -o '^[^.]*'`.conf"
 
 # Disconnect from NordVPN
-nordvpn d > /dev/null 2>&1
+nordvpn d > /dev/null 2>&1 || {
+    echo "Unable to disconnect from NordVPN."
+    exit 1
+}
 
-# Preparing the Peer section 
-endpoint=`grep -m 1 -o '.*' Peer.txt | tail -n 1`
-publicKey=`grep -m 5 -o '.*' Peer.txt | tail -n 1`
+# Creating Wireguard Configuration file
+cat <<EOF > $OUTPUFILENAME
+[Interface]
+Address = ${MYIP}
+PrivateKey = ${PRIVATE}
+ListenPort = 51820
+DNS = 103.86.96.100, 103.86.99.100
 
-rm Peer.txt
+[Peer]
+PublicKey = ${PUBKEY}
+AllowedIPs = 0.0.0.0/0, ::0/0
+Endpoint = ${ENDPOINT}:51820
+PersistentKeepalive = 25
+EOF
 
-echo "[Peer]" >> Nordvpn.conf
-echo "PublicKey = $publicKey" >> Nordvpn.conf
-echo "AllowedIPs = 0.0.0.0/0" >> Nordvpn.conf
-echo "Endpoint = $endpoint:51820" >> Nordvpn.conf
-echo "PersistentKeepalive = 25" >> Nordvpn.conf
+mv $OUTPUFILENAME "/etc/wireguard/${OUTPUFILENAME}"
+chmod 600 "/etc/wireguard/${OUTPUFILENAME}"
 
-# Renaming config file to show the endpoint country id and server number
-outputFileName=`echo $endpoint |  grep -o '^[^.]*'`
-outputFileName=`echo "NordVPN-$outputFileName.conf"`
+echo "Wireguard configuration file /etc/wireguard/${OUTPUFILENAME} created successfully!"
 
-mv Nordvpn.conf /etc/wireguard/$outputFileName
-chmod 600 /etc/wireguard/$outputFileName
+qrencode -t ansiutf8 < "/etc/wireguard/${OUTPUFILENAME}" | tee "/etc/wireguard/${OUTPUFILENAME}.qr"
 
-echo "Wireguard configuration file /etc/wireguard/$outputFileName created successfully!"
-
-qrencode -t ansiutf8 < "/etc/wireguard/${outputFileName}"
-qrencode -t ansiutf8 < "/etc/wireguard/${outputFileName}" > "/etc/wireguard/${outputFileName}.qr"
-
-chmod 600 "/etc/wireguard/$outputFileName.qr"
+chmod 600 "/etc/wireguard/${OUTPUFILENAME}.qr"
 
 exit 0
