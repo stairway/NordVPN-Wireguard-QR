@@ -1,14 +1,20 @@
 #!/usr/bin/env sh
 
-set -e
+set -eu
 
 SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 cd "${SCRIPT_DIR}/../"
 
+test -f data/.nordvpn_token && err=0 || err=$?
+test $err -eq 0 || (echo "Token not found in data/.nordvpn_token file" && exit $err)
+
+set -x
+# NORDVPN_TOKEN="$(cat ${PWD}/data/.nordvpn_token)"
 docker run -it --privileged --device=/dev/net/tun \
-	-v "$(pwd)/wireguard":/etc/wireguard \
-	-e "NORDVPN_TOKEN=0d579ed1979abc992bc41c626b726b4fba69866e6be4861cf77224f004c044fc" \
-	-e "COUNTRY=${1}" \
-	-e "CITY=${2}" \
+	-v "$PWD/.wireguard":/etc/wireguard \
+  -v "$PWD/data":/data \
+	-e "NORDVPN_TOKEN=${NORDVPN_TOKEN-}" \
+	-e "COUNTRY=${1-}" \
+	-e "CITY=${2-}" \
 	nordvpn:local

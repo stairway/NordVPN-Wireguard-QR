@@ -12,5 +12,5 @@ ARCHIVE_FILE="${PROJECT_NAME}/dist/${PROJECT_NAME}"
 [ -d "${PROJECT_NAME}/dist" ] || mkdir "${PROJECT_NAME}/dist"
 
 set -x
-tar --exclude=".DS_Store" --exclude="${PROJECT_NAME}/.git" --exclude="${PROJECT_NAME}/wireguard" --exclude="/**/*.tgz" --exclude="/**/*.zip" -czvf "foo.tgz" ${PROJECT_NAME}
-zip -r - "${PROJECT_NAME}" -x "/**/.DS_Store" -x "${PROJECT_NAME}/wireguard/*" -x "${PROJECT_NAME}/dist/*" -x "${PROJECT_NAME}/.git/*" >"${ARCHIVE_FILE}.zip"
+tar --exclude=".DS_Store" --exclude="${PROJECT_NAME}/.git" --exclude="${PROJECT_NAME}/.wireguard" --exclude="${PROJECT_NAME}/data" --exclude="/**/*.tgz" --exclude="/**/*.zip" -czvf "foo.tgz" ${PROJECT_NAME}
+zip -r - "${PROJECT_NAME}" -x "/**/.DS_Store" -x "${PROJECT_NAME}/.wireguard/*" -x "${PROJECT_NAME}/data/*" -x "${PROJECT_NAME}/dist/*" -x "${PROJECT_NAME}/.git/*" >"${ARCHIVE_FILE}.zip"
