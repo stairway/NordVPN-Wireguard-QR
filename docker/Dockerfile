@@ -9,14 +9,32 @@ RUN apt-get update && \
     apt-get remove -y wget nordvpn-release && \
     rm /tmp/nordrepo.deb && \
     apt-get clean
-    
-RUN mkdir -p /root/bin && mkdir -p /etc/wireguard
-VOLUME ["/etc/wireguard","/root","/data"]
 
-COPY src/bin/* /root/bin/
+RUN adduser --disabled-password --gecos "" nord && \
+    usermod -aG nordvpn nord && \
+    echo "nord ALL=NOPASSWD: ALL" > /etc/sudoers.d/nord && \
+    mkdir -p /etc/wireguard && \
+    chown -R nord:nord /etc/wireguard
 
-ENTRYPOINT /etc/init.d/nordvpn start && sleep 5 && (test -r /data/.nordvpn_token && cp /data/.nordvpn_token /root/ || true) && \
-  ( set -e; test -n "$NORDVPN_TOKEN" || NORDVPN_TOKEN="$(cat /root/.nordvpn_token)"; nordvpn login --token "$(echo ${NORDVPN_TOKEN})" || { printf "There was a problem.\n"; exit 1; }; ) && \
-  /bin/bash -c "$@"
+# TODO: The 'nord ALL=NOPASSWD: ALL' line in /etc/sudoers.d/nord shouldn't be required if the below exists
+RUN cat <<EOF >>/etc/sudoers.d/nord
+nord ALL=(ALL) NOPASSWD: /usr/bin/nordvpn login
+nord ALL=(ALL) NOPASSWD: /usr/bin/nordvpn connect
+nord ALL=(ALL) NOPASSWD: /usr/bin/nordvpn d
+nord ALL=(ALL) NOPASSWD: /etc/init.d/nordvpn start
+nord ALL=(ALL) NOPASSWD: /etc/init.d/nordvpn stop
+nord ALL=(ALL) NOPASSWD: /etc/init.d/nordvpn restart
+EOF
 
-CMD /root/bin/NordVpnToWireguard.sh
+COPY --chown=nord:nord src/ /home/nord/
+
+VOLUME ["/etc/wireguard","/home/nord"]
+
+USER nord
+
+ENTRYPOINT sudo /etc/init.d/nordvpn start && sleep 5 && (test -r /data/.nordvpn_token && cp /data/.nordvpn_token /home/nord/ || true) && \
+    ( set -e; test -n "$NORDVPN_TOKEN" || NORDVPN_TOKEN="$(cat /home/nord/.nordvpn_token)"; \
+        nordvpn login --token "$(echo ${NORDVPN_TOKEN})" || { printf "There was a problem.\n"; exit 1; }; ) && \
+    cd ~ && /bin/bash -c "$@" && nordvpn logout --persist-token
+
+CMD sh -c '/home/nord/bin/NordVpnToWireguard.sh; ! "${DEBUG:-false}" || exec /bin/bash'
