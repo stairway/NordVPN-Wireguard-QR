@@ -70,12 +70,7 @@ PersistentKeepalive = 25
 EOF
 
 mv $OUTPUFILENAME "/etc/wireguard/${OUTPUFILENAME}"
-chmod 600 "/etc/wireguard/${OUTPUFILENAME}"
-
 echo "Wireguard configuration file /etc/wireguard/${OUTPUFILENAME} created successfully!"
-
 qrencode -t ansiutf8 < "/etc/wireguard/${OUTPUFILENAME}" | tee "/etc/wireguard/${OUTPUFILENAME}.qr"
-
-chmod 600 "/etc/wireguard/${OUTPUFILENAME}.qr"
 
 exit 0

@@ -11,10 +11,12 @@ test $err -eq 0 || (echo "Token not found in data/.nordvpn_token file" && exit $
 
 set -x
 # NORDVPN_TOKEN="$(cat ${PWD}/data/.nordvpn_token)"
-docker run -it --privileged --device=/dev/net/tun \
+docker run --rm -it --privileged --device=/dev/net/tun \
 	-v "$PWD/.wireguard":/etc/wireguard \
   -v "$PWD/data":/data \
 	-e "NORDVPN_TOKEN=${NORDVPN_TOKEN-}" \
 	-e "COUNTRY=${1-}" \
 	-e "CITY=${2-}" \
+  -e "DEBUG=${DEBUG-}" \
+  --init \
 	nordvpn:local
