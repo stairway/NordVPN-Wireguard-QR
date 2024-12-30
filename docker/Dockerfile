@@ -13,8 +13,8 @@ RUN apt-get update && \
 RUN adduser --disabled-password --gecos "" nord && \
     usermod -aG nordvpn nord && \
     echo "nord ALL=NOPASSWD: ALL" > /etc/sudoers.d/nord && \
-    mkdir -p /etc/wireguard && \
-    chown -R nord:nord /etc/wireguard
+    mkdir -p /home/nord/wireguard && \
+    chown -R nord:nord /home/nord/wireguard
 
 # TODO: The 'nord ALL=NOPASSWD: ALL' line in /etc/sudoers.d/nord shouldn't be required if the below exists
 RUN cat <<EOF >>/etc/sudoers.d/nord
@@ -28,11 +28,12 @@ EOF
 
 COPY --chown=nord:nord src/ /home/nord/
 
-VOLUME ["/etc/wireguard","/home/nord"]
+VOLUME ["/data","/home/nord"]
 
 USER nord
 
-ENTRYPOINT sudo /etc/init.d/nordvpn start && sleep 5 && (test -r /data/.nordvpn_token && cp /data/.nordvpn_token /home/nord/ || true) && \
+ENTRYPOINT sudo /etc/init.d/nordvpn start && sleep 5 && \
+    (test -r /data/.nordvpn_token && cp /data/.nordvpn_token /home/nord/ || true) && \
     ( set -e; test -n "$NORDVPN_TOKEN" || NORDVPN_TOKEN="$(cat /home/nord/.nordvpn_token)"; \
         nordvpn login --token "$(echo ${NORDVPN_TOKEN})" || { printf "There was a problem.\n"; exit 1; }; ) && \
     cd ~ && /bin/bash -c "$@" && nordvpn logout --persist-token
