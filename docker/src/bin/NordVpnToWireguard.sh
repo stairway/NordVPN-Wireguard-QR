@@ -69,8 +69,8 @@ Endpoint = ${ENDPOINT}:51820
 PersistentKeepalive = 25
 EOF
 
-mv $OUTPUFILENAME "/etc/wireguard/${OUTPUFILENAME}"
-echo "Wireguard configuration file /etc/wireguard/${OUTPUFILENAME} created successfully!"
-qrencode -t ansiutf8 < "/etc/wireguard/${OUTPUFILENAME}" | tee "/etc/wireguard/${OUTPUFILENAME}.qr"
+mv $OUTPUFILENAME "/home/nord/wireguard/${OUTPUFILENAME}"
+echo "Wireguard configuration file /home/nord/wireguard/${OUTPUFILENAME} created successfully!"
+qrencode -t ansiutf8 < "/home/nord/wireguard/${OUTPUFILENAME}" | tee "/home/nord/wireguard/${OUTPUFILENAME}.qr"
 
 exit 0
