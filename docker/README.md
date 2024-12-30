@@ -2,7 +2,7 @@
 
 #### IMPORTANT
 
-The `.sh` files in the `bin` directory all `cd` into this folder's parent directory. This means that from within those `.sh`, references to files will be as if the script existed one directory up.
+The `.sh` files in the `bin` directory all `cd` into this folder's parent directory. This means that from within those `.sh` files, references to other files will be as if the script existed one directory up.
 
 ## Step 1: Building the Docker Image (`bin/build.sh`)
 
